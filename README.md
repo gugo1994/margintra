@@ -72,9 +72,16 @@ PostgreSQL is the source of truth. An ingestion request succeeds only after its 
 - OpenSSL for generating local secrets
 
 ```bash
-git clone <repository-url>
-cd Margintra
+git clone https://github.com/gugo1994/margintra.git
+cd margintra
 cp .env.example .env
+```
+
+Or clone over SSH:
+
+```bash
+git clone git@github.com:gugo1994/margintra.git
+cd margintra
 ```
 
 Set a strong `POSTGRES_PASSWORD`, a JWT secret of at least 32 random bytes, and a stable base64-encoded 32-byte billing encryption key in `.env`. For example, generate values locally with:
