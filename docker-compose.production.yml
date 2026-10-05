@@ -1,0 +1,99 @@
+x-api-environment: &api-environment
+  APP_ENV: production
+  PORT: 8080
+  DATABASE_URL: postgres://${POSTGRES_USER:-margintra}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-margintra}
+  REDIS_URL: redis://redis:6379
+  DB_POOL_MAX: ${DB_POOL_MAX:-10}
+  DB_POOL_IDLE_TIMEOUT_MS: ${DB_POOL_IDLE_TIMEOUT_MS:-30000}
+  DB_POOL_CONNECTION_TIMEOUT_MS: ${DB_POOL_CONNECTION_TIMEOUT_MS:-5000}
+  USAGE_REPLAY_INTERVAL_MS: ${USAGE_REPLAY_INTERVAL_MS:-5000}
+  INGESTION_WORKER_ENABLED: ${INGESTION_WORKER_ENABLED:-true}
+  INGESTION_WORKER_INTERVAL_MS: ${INGESTION_WORKER_INTERVAL_MS:-10000}
+  INGESTION_WORKER_BATCH_SIZE: ${INGESTION_WORKER_BATCH_SIZE:-10}
+  INGESTION_WORKER_CLAIM_TIMEOUT_MS: ${INGESTION_WORKER_CLAIM_TIMEOUT_MS:-300000}
+  INGESTION_WORKER_MAX_ATTEMPTS: ${INGESTION_WORKER_MAX_ATTEMPTS:-5}
+  INGESTION_WORKER_INITIAL_BACKOFF_MS: ${INGESTION_WORKER_INITIAL_BACKOFF_MS:-1000}
+  INGESTION_WORKER_MAX_BACKOFF_MS: ${INGESTION_WORKER_MAX_BACKOFF_MS:-60000}
+  PRICING_REFRESH_ENABLED: ${PRICING_REFRESH_ENABLED:-true}
+  PRICING_REFRESH_INTERVAL_MS: ${PRICING_REFRESH_INTERVAL_MS:-43200000}
+  PRICING_REFRESH_POLL_INTERVAL_MS: ${PRICING_REFRESH_POLL_INTERVAL_MS:-60000}
+  PRICING_REFRESH_CLAIM_TIMEOUT_MS: ${PRICING_REFRESH_CLAIM_TIMEOUT_MS:-900000}
+  NOTIFICATION_WORKER_INTERVAL_MS: ${NOTIFICATION_WORKER_INTERVAL_MS:-5000}
+  STRIPE_WEBHOOK_RETRY_INTERVAL_MS: ${STRIPE_WEBHOOK_RETRY_INTERVAL_MS:-5000}
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to at least 32 random bytes}
+  JWT_ISSUER: ${JWT_ISSUER:-Margintra}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-Margintra.Web}
+  STRIPE_ENCRYPTION_KEY: ${BILLING_ENCRYPTION_KEY:?Set BILLING_ENCRYPTION_KEY to a base64 32-byte key}
+  WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN to the public HTTPS web origin}
+  TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-2}
+  SEED_DEMO_DATA: "false"
+  EMAIL_PROVIDER: resend
+  EMAIL_API_KEY: ${EMAIL_API_KEY:?Set the Resend API key}
+  EMAIL_FROM_EMAIL: ${EMAIL_FROM_EMAIL:?Set a verified Resend sender}
+  EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Margintra}
+  MARGINTRA_DASHBOARD_URL: ${MARGINTRA_DASHBOARD_URL:?Set the public HTTPS dashboard URL}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-margintra}
+      POSTGRES_USER: ${POSTGRES_USER:-margintra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 10s, timeout: 3s, retries: 12 }
+    networks: [backend]
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    read_only: true
+    tmpfs: ["/data"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 10s, timeout: 3s, retries: 12 }
+    networks: [backend]
+  migrate:
+    image: margintra-api:${IMAGE_TAG:-production}
+    command: ["node", "dist/database/migrate.js"]
+    environment: *api-environment
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [backend]
+  api-nest:
+    image: margintra-api:${IMAGE_TAG:-production}
+    build: { context: backend-nest }
+    restart: unless-stopped
+    environment: *api-environment
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health/ready"], interval: 10s, timeout: 3s, retries: 12, start_period: 10s }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    networks: [backend, edge]
+  web:
+    image: margintra-web:${IMAGE_TAG:-production}
+    build: { context: web }
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp", "/var/cache/nginx", "/var/run"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:${WEB_PORT:-8080}:8080"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health/ready"], interval: 10s, timeout: 3s, retries: 12, start_period: 5s }
+    depends_on:
+      api-nest: { condition: service_healthy }
+    networks: [backend, edge]
+
+networks:
+  backend: { internal: true }
+  edge: {}
+volumes:
+  postgres_data: {}

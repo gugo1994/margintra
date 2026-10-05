@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" role="img" aria-labelledby="title desc">
+  <title id="title">Stripe restricted key permissions</title><desc id="desc">Illustration showing the five Stripe resources set to Read and all others set to None.</desc>
+  <rect width="960" height="480" fill="#f5f7fb"/><rect x="40" y="34" width="880" height="412" rx="14" fill="#fff" stroke="#e3e7ef"/>
+  <rect x="40" y="34" width="880" height="62" rx="14" fill="#151b2b"/><path d="M40 82h880v14H40z" fill="#151b2b"/>
+  <text x="70" y="73" fill="#f8fafc" font-family="Arial,sans-serif" font-size="20" font-weight="700">Restricted key permissions</text>
+  <text x="70" y="132" fill="#596579" font-family="Arial,sans-serif" font-size="15">Resource</text><text x="730" y="132" fill="#596579" font-family="Arial,sans-serif" font-size="15">Permission</text>
+  <g font-family="Arial,sans-serif" font-size="17" fill="#172033">
+    <text x="70" y="180">Accounts</text><text x="70" y="229">Customers</text><text x="70" y="278">Subscriptions</text><text x="70" y="327">Prices</text><text x="70" y="376">Products</text>
+  </g>
+  <g fill="#eef2ff" stroke="#c7d2fe"><rect x="710" y="153" width="150" height="34" rx="7"/><rect x="710" y="202" width="150" height="34" rx="7"/><rect x="710" y="251" width="150" height="34" rx="7"/><rect x="710" y="300" width="150" height="34" rx="7"/><rect x="710" y="349" width="150" height="34" rx="7"/></g>
+  <g fill="#4f46e5" font-family="Arial,sans-serif" font-size="15" font-weight="700" text-anchor="middle"><text x="785" y="176">Read</text><text x="785" y="225">Read</text><text x="785" y="274">Read</text><text x="785" y="323">Read</text><text x="785" y="372">Read</text></g>
+  <path d="M70 402h790" stroke="#e3e7ef"/><text x="70" y="426" fill="#7c8799" font-family="Arial,sans-serif" font-size="14">All other resources: None · No Write permissions required</text>
+</svg>

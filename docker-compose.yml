@@ -1,0 +1,62 @@
+name: margintra
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-margintra}
+      POSTGRES_USER: ${POSTGRES_USER:-margintra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    ports: ["55434:5432"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"], interval: 5s, timeout: 3s, retries: 12 }
+  redis:
+    image: redis:8-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 12 }
+  api-nest:
+    image: margintra-api-nest
+    build: { context: backend-nest }
+    environment:
+      APP_ENV: Development
+      PORT: 8080
+      DATABASE_URL: postgres://${POSTGRES_USER:-margintra}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-margintra}
+      REDIS_URL: redis://redis:6379
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      DB_POOL_IDLE_TIMEOUT_MS: ${DB_POOL_IDLE_TIMEOUT_MS:-30000}
+      DB_POOL_CONNECTION_TIMEOUT_MS: ${DB_POOL_CONNECTION_TIMEOUT_MS:-5000}
+      USAGE_REPLAY_INTERVAL_MS: ${USAGE_REPLAY_INTERVAL_MS:-5000}
+      INGESTION_WORKER_ENABLED: ${INGESTION_WORKER_ENABLED:-true}
+      INGESTION_WORKER_INTERVAL_MS: ${INGESTION_WORKER_INTERVAL_MS:-10000}
+      INGESTION_WORKER_BATCH_SIZE: ${INGESTION_WORKER_BATCH_SIZE:-10}
+      INGESTION_WORKER_CLAIM_TIMEOUT_MS: ${INGESTION_WORKER_CLAIM_TIMEOUT_MS:-300000}
+      INGESTION_WORKER_MAX_ATTEMPTS: ${INGESTION_WORKER_MAX_ATTEMPTS:-5}
+      INGESTION_WORKER_INITIAL_BACKOFF_MS: ${INGESTION_WORKER_INITIAL_BACKOFF_MS:-1000}
+      INGESTION_WORKER_MAX_BACKOFF_MS: ${INGESTION_WORKER_MAX_BACKOFF_MS:-60000}
+      NOTIFICATION_WORKER_INTERVAL_MS: ${NOTIFICATION_WORKER_INTERVAL_MS:-5000}
+      STRIPE_WEBHOOK_RETRY_INTERVAL_MS: ${STRIPE_WEBHOOK_RETRY_INTERVAL_MS:-5000}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (at least 32 bytes) in .env}
+      JWT_ISSUER: Margintra
+      JWT_AUDIENCE: Margintra.Web
+      STRIPE_ENCRYPTION_KEY: ${BILLING_ENCRYPTION_KEY:?Set BILLING_ENCRYPTION_KEY (base64 32-byte key) in .env}
+      WEB_ORIGIN: http://localhost:5173
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-development}
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+      EMAIL_FROM_EMAIL: ${EMAIL_FROM_EMAIL:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Margintra}
+      MARGINTRA_DASHBOARD_URL: ${MARGINTRA_DASHBOARD_URL:-http://localhost:5173}
+    ports: ["8081:8080"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health/ready"], interval: 10s, timeout: 3s, retries: 12, start_period: 10s }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  web:
+    image: margintra-web
+    build: { context: web }
+    ports: ["5173:8080"]
+    depends_on:
+      api-nest: { condition: service_healthy }
+volumes:
+  postgres_data:
+    external: true
+    name: marginos_postgres_data
